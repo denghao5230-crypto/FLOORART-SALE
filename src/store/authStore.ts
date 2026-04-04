@@ -124,11 +124,17 @@ export const useAuthStore = create<AuthStore>()(
 
             if (!authError && authData.user) {
               // Fetch profile from profiles table
-              const { data: profileData, error: profileError } = await supabase
+              const { data: rawProfile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', authData.user.id)
                 .single()
+
+              const profileData = rawProfile as {
+                id: string; email: string; full_name: string | null;
+                role: string; status: string; avatar_url: string | null;
+                phone: string | null;
+              } | null
 
               if (!profileError && profileData) {
                 if (profileData.status === 'disabled') {
