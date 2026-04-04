@@ -19,7 +19,7 @@ export function AuthGuard({ children, requiredRole = 'employee' }: AuthGuardProp
     }
 
     // Account disabled or deleted
-    if (profile?.isDisabled || profile?.isDeleted) {
+    if (profile?.status === 'disabled' || profile?.status === 'deleted') {
       navigate('/login', { replace: true })
       return
     }
