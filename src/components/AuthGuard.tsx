@@ -1,5 +1,6 @@
 import { ReactNode, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ROUTES, getRoleHomeRoute, isBossRoute, isEmployeeRoute } from '@/constants/routes'
 import { useAuthStore } from '@/store/authStore'
 
 interface AuthGuardProps {
@@ -9,38 +10,46 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children, requiredRole = 'employee' }: AuthGuardProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { profile, isAuthenticated } = useAuthStore()
 
   useEffect(() => {
+    const pathname = location.pathname
+
     // Not authenticated - redirect to login
     if (!isAuthenticated) {
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
       return
     }
 
     // Account disabled or deleted
     if (profile?.status === 'disabled' || profile?.status === 'deleted') {
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
+      return
+    }
+
+    // Auto-redirect based on role and current route group.
+    if (profile?.role === 'boss' && isEmployeeRoute(pathname)) {
+      navigate(getRoleHomeRoute('boss'), { replace: true })
+      return
+    }
+
+    if (profile?.role === 'employee' && isBossRoute(pathname)) {
+      navigate(getRoleHomeRoute('employee'), { replace: true })
       return
     }
 
     // Check role-based access
     if (requiredRole === 'boss' && profile?.role !== 'boss') {
-      navigate('/no-permission', { replace: true })
+      navigate(ROUTES.noPermission, { replace: true })
       return
     }
 
-    // Auto-redirect based on role
-    if (profile?.role === 'boss' && window.location.pathname.startsWith('/app')) {
-      navigate('/boss', { replace: true })
+    if (requiredRole === 'employee' && profile?.role !== 'employee') {
+      navigate(ROUTES.noPermission, { replace: true })
       return
     }
-
-    if (profile?.role === 'employee' && window.location.pathname.startsWith('/boss')) {
-      navigate('/app', { replace: true })
-      return
-    }
-  }, [isAuthenticated, profile, requiredRole, navigate])
+  }, [isAuthenticated, location.pathname, navigate, profile, requiredRole])
 
   // During auth check
   if (!isAuthenticated || !profile) {
@@ -49,6 +58,10 @@ export function AuthGuard({ children, requiredRole = 'employee' }: AuthGuardProp
 
   // Access denied for role
   if (requiredRole === 'boss' && profile.role !== 'boss') {
+    return null
+  }
+
+  if (requiredRole === 'employee' && profile.role !== 'employee') {
     return null
   }
 

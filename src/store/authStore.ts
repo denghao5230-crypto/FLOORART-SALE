@@ -12,12 +12,57 @@ export interface UserProfile {
   status: 'active' | 'disabled' | 'deleted'
 }
 
+interface RawProfile {
+  id: string
+  email: string
+  full_name: string | null
+  role: string
+  status: string
+  avatar_url: string | null
+  phone: string | null
+}
+
+interface AuthStore {
+  profile: UserProfile | null
+  isAuthenticated: boolean
+  loading: boolean
+  unreadCount: number
+  isDemo: boolean
+  initialize: () => Promise<void>
+  signIn: (email: string, password: string) => Promise<{ error?: string }>
+  signOut: () => Promise<void>
+  login: (profile: UserProfile) => void
+  logout: () => void
+  updateProfile: (updates: Partial<UserProfile>) => void
+  setUnreadCount: (count: number) => void
+}
+
+const INITIAL_AUTH_STATE = {
+  profile: null,
+  isAuthenticated: false,
+  unreadCount: 0,
+  isDemo: false,
+} as const
+
 // Check if Supabase is properly configured
 const isSupabaseConfigured = () => {
   const url = import.meta.env.VITE_SUPABASE_URL
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-  return url && key && !url.includes('placeholder')
+  return Boolean(url && key && !url.includes('placeholder'))
 }
+
+const isDemoModeEnabled = () => import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false'
+
+const buildProfileFromRaw = (raw: RawProfile, emailFallback?: string): UserProfile => ({
+  id: raw.id,
+  name: raw.full_name || emailFallback?.split('@')[0] || 'User',
+  email: raw.email,
+  role: raw.role === 'boss' ? 'boss' : 'employee',
+  avatar: raw.avatar_url || undefined,
+  phone: raw.phone || undefined,
+  status:
+    raw.status === 'disabled' || raw.status === 'deleted' ? raw.status : 'active',
+})
 
 // Demo accounts - work without Supabase
 const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> = {
@@ -78,118 +123,149 @@ const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> 
   },
 }
 
-interface AuthStore {
-  profile: UserProfile | null
-  isAuthenticated: boolean
-  loading: boolean
-  unreadCount: number
-  isDemo: boolean
-  initialize: () => void
-  signIn: (email: string, password: string) => Promise<{ error?: string }>
-  signOut: () => void
-  login: (profile: UserProfile) => void
-  logout: () => void
-  updateProfile: (updates: Partial<UserProfile>) => void
-  setUnreadCount: (count: number) => void
-}
-
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      profile: null,
-      isAuthenticated: false,
+      ...INITIAL_AUTH_STATE,
       loading: true,
-      unreadCount: 0,
-      isDemo: false,
 
-      initialize: () => {
+      initialize: async () => {
         const state = get()
-        if (state.profile && state.isAuthenticated) {
+
+        // Demo or non-Supabase mode does not require remote session hydration.
+        if (!isSupabaseConfigured() || state.isDemo) {
           set({ loading: false })
-        } else {
-          setTimeout(() => {
-            set({ loading: false })
-          }, 500)
+          return
+        }
+
+        try {
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession()
+
+          if (sessionError) {
+            throw sessionError
+          }
+
+          if (!session?.user) {
+            set({ ...INITIAL_AUTH_STATE, loading: false })
+            return
+          }
+
+          const { data: rawProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+
+          if (profileError || !rawProfile) {
+            await supabase.auth.signOut()
+            set({ ...INITIAL_AUTH_STATE, loading: false })
+            return
+          }
+
+          const profile = buildProfileFromRaw(rawProfile as RawProfile, session.user.email)
+          if (profile.status !== 'active') {
+            await supabase.auth.signOut()
+            set({ ...INITIAL_AUTH_STATE, loading: false })
+            return
+          }
+
+          set({
+            profile,
+            isAuthenticated: true,
+            loading: false,
+            unreadCount: state.unreadCount || 3,
+            isDemo: false,
+          })
+        } catch (err) {
+          console.warn('Auth initialization failed:', err)
+          set({ loading: false })
         }
       },
 
       signIn: async (email: string, password: string) => {
+        const normalizedEmail = email.trim().toLowerCase()
+        set({ loading: true })
+
         // Try real Supabase auth first
         if (isSupabaseConfigured()) {
           try {
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-              email: email.toLowerCase(),
+              email: normalizedEmail,
               password,
             })
 
             if (!authError && authData.user) {
-              // Fetch profile from profiles table
               const { data: rawProfile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', authData.user.id)
                 .single()
 
-              const profileData = rawProfile as {
-                id: string; email: string; full_name: string | null;
-                role: string; status: string; avatar_url: string | null;
-                phone: string | null;
-              } | null
-
-              if (!profileError && profileData) {
-                if (profileData.status === 'disabled') {
-                  await supabase.auth.signOut()
-                  return { error: '账号已被停用，请联系管理员 / Account disabled' }
-                }
-                if (profileData.status === 'deleted') {
-                  await supabase.auth.signOut()
-                  return { error: '账号已被取消 / Account cancelled' }
-                }
-
-                const profile: UserProfile = {
-                  id: profileData.id,
-                  name: profileData.full_name || authData.user.email?.split('@')[0] || 'User',
-                  email: profileData.email,
-                  role: profileData.role as 'employee' | 'boss',
-                  avatar: profileData.avatar_url || undefined,
-                  phone: profileData.phone || undefined,
-                  status: profileData.status as 'active' | 'disabled' | 'deleted',
-                }
-
-                set({
-                  profile,
-                  isAuthenticated: true,
-                  loading: false,
-                  unreadCount: 3,
-                  isDemo: false,
-                })
-                return {}
+              if (profileError || !rawProfile) {
+                await supabase.auth.signOut()
+                set({ loading: false })
+                return { error: '账号资料不存在，请联系管理员 / Missing profile data' }
               }
+
+              const profile = buildProfileFromRaw(rawProfile as RawProfile, authData.user.email)
+              if (profile.status === 'disabled') {
+                await supabase.auth.signOut()
+                set({ loading: false })
+                return { error: '账号已被停用，请联系管理员 / Account disabled' }
+              }
+              if (profile.status === 'deleted') {
+                await supabase.auth.signOut()
+                set({ loading: false })
+                return { error: '账号已被取消 / Account cancelled' }
+              }
+
+              set({
+                profile,
+                isAuthenticated: true,
+                loading: false,
+                unreadCount: 3,
+                isDemo: false,
+              })
+              return {}
             }
 
-            // If Supabase auth failed, fall through to demo mode
-            if (authError) {
-              console.warn('Supabase auth failed, trying demo mode:', authError.message)
+            // In production environments demo fallback can be disabled explicitly.
+            if (authError && !isDemoModeEnabled()) {
+              set({ loading: false })
+              return { error: authError.message || '登录失败 / Sign in failed' }
             }
           } catch (err) {
-            console.warn('Supabase connection error, falling back to demo mode:', err)
+            console.warn('Supabase connection error:', err)
+            if (!isDemoModeEnabled()) {
+              set({ loading: false })
+              return { error: '服务暂时不可用，请稍后再试 / Service unavailable' }
+            }
           }
         }
 
-        // Fallback: Demo mode
-        const account = DEMO_ACCOUNTS[email.toLowerCase()]
-        if (!account) {
-          return { error: '邮箱或密码错误 / Invalid email or password' }
+        if (!isDemoModeEnabled()) {
+          set({ loading: false })
+          return { error: '演示模式已关闭，请使用正式账号 / Demo mode is disabled' }
         }
-        if (account.password !== password) {
+
+        // Fallback: Demo mode
+        const account = DEMO_ACCOUNTS[normalizedEmail]
+        if (!account || account.password !== password) {
+          set({ loading: false })
           return { error: '邮箱或密码错误 / Invalid email or password' }
         }
         if (account.profile.status === 'disabled') {
+          set({ loading: false })
           return { error: '账号已被停用，请联系管理员 / Account disabled' }
         }
         if (account.profile.status === 'deleted') {
+          set({ loading: false })
           return { error: '账号已被取消 / Account cancelled' }
         }
+
         set({
           profile: account.profile,
           isAuthenticated: true,
@@ -201,15 +277,15 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signOut: async () => {
-        if (isSupabaseConfigured() && !get().isDemo) {
-          await supabase.auth.signOut()
+        const state = get()
+        if (isSupabaseConfigured() && !state.isDemo) {
+          try {
+            await supabase.auth.signOut()
+          } catch (err) {
+            console.warn('Supabase sign out failed:', err)
+          }
         }
-        set({
-          profile: null,
-          isAuthenticated: false,
-          unreadCount: 0,
-          isDemo: false,
-        })
+        set({ ...INITIAL_AUTH_STATE, loading: false })
       },
 
       login: (profile) => {
@@ -217,20 +293,12 @@ export const useAuthStore = create<AuthStore>()(
           profile,
           isAuthenticated: true,
           loading: false,
+          isDemo: false,
         })
       },
 
       logout: () => {
-        const state = get()
-        if (isSupabaseConfigured() && !state.isDemo) {
-          supabase.auth.signOut()
-        }
-        set({
-          profile: null,
-          isAuthenticated: false,
-          unreadCount: 0,
-          isDemo: false,
-        })
+        void get().signOut()
       },
 
       updateProfile: (updates) => {
@@ -249,6 +317,7 @@ export const useAuthStore = create<AuthStore>()(
         profile: state.profile,
         isAuthenticated: state.isAuthenticated,
         isDemo: state.isDemo,
+        unreadCount: state.unreadCount,
       }),
     }
   )

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useI18nStore } from '@/store/i18nStore'
+import { ROUTES } from '@/constants/routes'
 import {
   Home,
   Users,
@@ -19,28 +20,26 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   Moon,
   Sun,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 
 const NAV_ITEMS = [
-  { labelKey: 'nav.battleStation', icon: Home, href: '/app' },
-  { labelKey: 'nav.myCustomers', icon: Users, href: '/app/customers' },
-  { labelKey: 'nav.followups', icon: MessageSquare, href: '/app/followups' },
-  { labelKey: 'nav.attachments', icon: Paperclip, href: '/app/attachments' },
-  { labelKey: 'nav.quotes', icon: FileText, href: '/app/quotes' },
-  { labelKey: 'nav.payments', icon: DollarSign, href: '/app/payments' },
-  { labelKey: 'nav.commission', icon: Coins, href: '/app/commission' },
-  { labelKey: 'nav.kpi', icon: Target, href: '/app/kpi' },
-  { labelKey: 'nav.weeklyReport', icon: ClipboardList, href: '/app/weekly-report' },
-  { labelKey: 'nav.aiCoach', icon: Brain, href: '/app/ai-coach' },
-  { labelKey: 'nav.deadlines', icon: Clock, href: '/app/deadlines' },
+  { labelKey: 'nav.battleStation', icon: Home, href: ROUTES.employee.root },
+  { labelKey: 'nav.myCustomers', icon: Users, href: ROUTES.employee.customers },
+  { labelKey: 'nav.followups', icon: MessageSquare, href: ROUTES.employee.followups },
+  { labelKey: 'nav.attachments', icon: Paperclip, href: ROUTES.employee.attachments },
+  { labelKey: 'nav.quotes', icon: FileText, href: ROUTES.employee.quotes },
+  { labelKey: 'nav.payments', icon: DollarSign, href: ROUTES.employee.payments },
+  { labelKey: 'nav.commission', icon: Coins, href: ROUTES.employee.commission },
+  { labelKey: 'nav.kpi', icon: Target, href: ROUTES.employee.kpi },
+  { labelKey: 'nav.weeklyReport', icon: ClipboardList, href: ROUTES.employee.weeklyReport },
+  { labelKey: 'nav.aiCoach', icon: Brain, href: ROUTES.employee.aiCoach },
+  { labelKey: 'nav.deadlines', icon: Clock, href: ROUTES.employee.deadlines },
 ]
 
 export function EmployeeLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -49,15 +48,15 @@ export function EmployeeLayout() {
   const { t } = useI18nStore()
 
   const isActive = (href: string) => {
-    if (href === '/app') {
-      return location.pathname === '/app'
+    if (href === ROUTES.employee.root) {
+      return location.pathname === ROUTES.employee.root
     }
     return location.pathname.startsWith(href)
   }
 
   const handleLogout = () => {
     logout()
-    navigate('/login', { replace: true })
+    navigate(ROUTES.login, { replace: true })
   }
 
   return (
@@ -134,7 +133,7 @@ export function EmployeeLayout() {
         {/* Footer */}
         <div className="border-t border-surface-200 dark:border-surface-700 p-3 space-y-2">
           <button
-            onClick={() => navigate('/app/notifications')}
+            onClick={() => navigate(ROUTES.employee.notifications)}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors duration-200 relative"
           >
             <Bell size={18} />
@@ -147,7 +146,7 @@ export function EmployeeLayout() {
           </button>
 
           <button
-            onClick={() => navigate('/app/settings')}
+            onClick={() => navigate(ROUTES.employee.settings)}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors duration-200"
           >
             <Settings size={18} />
@@ -159,7 +158,7 @@ export function EmployeeLayout() {
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors duration-200"
           >
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            <span>{isDark ? t('common.loading') : t('common.loading')}</span>
+            <span>{isDark ? '切换到浅色模式' : '切换到深色模式'}</span>
           </button>
 
           <button
@@ -189,7 +188,7 @@ export function EmployeeLayout() {
             </h2>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/app/notifications')}
+                onClick={() => navigate(ROUTES.employee.notifications)}
                 className="relative p-2 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-lg transition-colors"
               >
                 <Bell size={20} className="text-surface-600 dark:text-surface-400" />
@@ -197,7 +196,7 @@ export function EmployeeLayout() {
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </button>
-              <div className="w-10 h-10 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-brand-500 transition-all" onClick={() => navigate('/app/settings')}>
+              <div className="w-10 h-10 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-brand-500 transition-all" onClick={() => navigate(ROUTES.employee.settings)}>
                 <Avatar name={profile?.name || 'User'} image={profile?.avatar} size="lg" />
               </div>
             </div>

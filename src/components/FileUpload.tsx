@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload, X, CheckCircle, AlertCircle, File, FileText, Image } from 'lucide-react'
 import { oneDriveService, type UploadRequest, type OneDriveFile } from '@/lib/onedrive'
 
@@ -33,6 +33,21 @@ export function FileUpload({
   const [uploadedFile, setUploadedFile] = useState<OneDriveFile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearActiveTimers = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current)
+      progressIntervalRef.current = null
+    }
+    if (resetTimeoutRef.current) {
+      clearTimeout(resetTimeoutRef.current)
+      resetTimeoutRef.current = null
+    }
+  }
+
+  useEffect(() => clearActiveTimers, [])
 
   // Get file icon based on type
   const getFileIcon = (mimeType: string) => {
@@ -56,6 +71,7 @@ export function FileUpload({
 
   // Handle file selection
   const handleFileSelect = async (file: File) => {
+    clearActiveTimers()
     setError(null)
 
     // Validate file
@@ -72,10 +88,13 @@ export function FileUpload({
 
     try {
       // Simulate progress
-      const progressInterval = setInterval(() => {
+      progressIntervalRef.current = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
-            clearInterval(progressInterval)
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current)
+              progressIntervalRef.current = null
+            }
             return 90
           }
           return prev + Math.random() * 30
@@ -93,22 +112,29 @@ export function FileUpload({
       }
 
       const result = await oneDriveService.uploadFile(uploadRequest)
-
-      clearInterval(progressInterval)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+      if (!result) {
+        throw new Error('Upload failed')
+      }
       setUploadProgress(100)
 
-      if (result) {
-        setUploadedFile(result)
-        onUploadComplete?.(result)
+      setUploadedFile(result)
+      onUploadComplete?.(result)
 
-        // Reset after 3 seconds
-        setTimeout(() => {
-          setUploadedFile(null)
-          setIsUploading(false)
-          setUploadProgress(0)
-        }, 3000)
-      }
+      // Reset after 3 seconds
+      resetTimeoutRef.current = setTimeout(() => {
+        setUploadedFile(null)
+        setIsUploading(false)
+        setUploadProgress(0)
+      }, 3000)
     } catch (err) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
       const error = err instanceof Error ? err : new Error('Upload failed')
       setError(error.message)
       onUploadError?.(error)

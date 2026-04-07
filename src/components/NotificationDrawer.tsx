@@ -3,6 +3,8 @@ import { X, Bell, Clock, CheckSquare, Trophy, AlertTriangle, Settings, ExternalL
 import { useNavigate } from 'react-router-dom'
 import type { Notification, NotificationType } from '@/types'
 import { DEMO_NOTIFICATIONS } from '@/lib/demoData'
+import { getRoleNotificationRoute } from '@/constants/routes'
+import { useAuthStore } from '@/store/authStore'
 
 interface NotificationDrawerProps {
   isOpen: boolean
@@ -34,7 +36,7 @@ const NOTIFICATION_COLORS: Record<NotificationType, string> = {
 export function NotificationDrawer({ isOpen, onClose }: NotificationDrawerProps) {
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<Notification[]>(DEMO_NOTIFICATIONS)
-  const [hasShown, setHasShown] = useState(false)
+  const profileRole = useAuthStore((state) => state.profile?.role ?? 'employee')
 
   // Get latest unread notifications (max 5)
   const latestNotifications = useMemo(() => {
@@ -161,7 +163,10 @@ export function NotificationDrawer({ isOpen, onClose }: NotificationDrawerProps)
             latestNotifications.map(notif => (
               <div
                 key={notif.id}
-                className="p-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer group"
+                onClick={() => notif.action_url && handleNotificationClick(notif)}
+                className={`relative p-3 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors group ${
+                  notif.action_url ? 'cursor-pointer' : ''
+                }`}
               >
                 <div className="flex gap-3">
                   {/* Icon */}
@@ -208,14 +213,6 @@ export function NotificationDrawer({ isOpen, onClose }: NotificationDrawerProps)
                     </button>
                   </div>
                 </div>
-
-                {/* Clickable area for navigation */}
-                {notif.action_url && (
-                  <button
-                    onClick={() => handleNotificationClick(notif)}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                )}
               </div>
             ))
           )}
@@ -226,7 +223,7 @@ export function NotificationDrawer({ isOpen, onClose }: NotificationDrawerProps)
           <div className="border-t border-gray-200 dark:border-gray-800 p-3">
             <button
               onClick={() => {
-                navigate('/app/notifications')
+                navigate(getRoleNotificationRoute(profileRole))
                 onClose()
               }}
               className="w-full py-2 px-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

@@ -190,6 +190,8 @@ senia-sales-engine/
 
 ## Quick Start / 快速开始
 
+If you encounter route `404` on refresh/deep links or local build hangs in iCloud folders, check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
 ### Prerequisites / 前置条件
 
 - **Node.js** 18 or higher

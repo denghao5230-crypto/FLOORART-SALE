@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { AuthGuard } from '@/components/AuthGuard'
+import { ROUTES } from '@/constants/routes'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { NotFoundPage } from '@/pages/auth/NotFoundPage'
 import { NoPermissionPage } from '@/pages/auth/NoPermissionPage'
@@ -46,79 +47,91 @@ import { NotificationCenter } from '@/pages/shared/NotificationCenter'
 import { SettingsPage } from '@/pages/shared/SettingsPage'
 
 export default function App() {
-  const { initialize, loading, profile } = useAuthStore()
+  const { initialize, loading } = useAuthStore()
   const { isDark } = useThemeStore()
+  const useHashRouter = import.meta.env.VITE_ROUTER_MODE === 'hash'
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
-    initialize()
-  }, [isDark, initialize])
+  }, [isDark])
+
+  useEffect(() => {
+    void initialize()
+  }, [initialize])
 
   if (loading) return <LoadingScreen />
 
+  const appRoutes = (
+    <Routes>
+      <Route path={ROUTES.login} element={<LoginPage />} />
+      <Route path={ROUTES.noPermission} element={<NoPermissionPage />} />
+
+      {/* Employee Routes */}
+      <Route
+        path={ROUTES.employee.root}
+        element={
+          <AuthGuard requiredRole="employee">
+            <EmployeeLayout />
+          </AuthGuard>
+        }
+      >
+        <Route index element={<EmployeeDashboard />} />
+        <Route path="customers" element={<CustomerList />} />
+        <Route path="customers/new" element={<NewCustomer />} />
+        <Route path="customers/:id" element={<CustomerDetail />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="followups" element={<FollowupPage />} />
+        <Route path="attachments" element={<AttachmentCenter />} />
+        <Route path="quotes" element={<QuoteList />} />
+        <Route path="quotes/:id" element={<QuoteDetail />} />
+        <Route path="payments" element={<PaymentList />} />
+        <Route path="commission" element={<CommissionPage />} />
+        <Route path="kpi" element={<KPIPage />} />
+        <Route path="weekly-report" element={<WeeklyReport />} />
+        <Route path="ai-coach" element={<AICoachPage />} />
+        <Route path="deadlines" element={<DeadlinePage />} />
+        <Route path="notifications" element={<NotificationCenter />} />
+        <Route path="settings" element={<SettingsPage />} />
+      </Route>
+
+      {/* Boss Routes */}
+      <Route
+        path={ROUTES.boss.root}
+        element={
+          <AuthGuard requiredRole="boss">
+            <BossLayout />
+          </AuthGuard>
+        }
+      >
+        <Route index element={<BossDashboard />} />
+        <Route path="team" element={<TeamActivity />} />
+        <Route path="performance" element={<EmployeePerformance />} />
+        <Route path="sales" element={<SalesAnalytics />} />
+        <Route path="sku" element={<SKUAnalytics />} />
+        <Route path="customers" element={<CustomerAnalytics />} />
+        <Route path="payments" element={<PaymentCommission />} />
+        <Route path="alerts" element={<ProjectAlerts />} />
+        <Route path="approvals" element={<QuoteApproval />} />
+        <Route path="ai" element={<AIAnalytics />} />
+        <Route path="high-potential" element={<HighPotential />} />
+        <Route path="deadlines" element={<DeadlineRisk />} />
+        <Route path="accounts" element={<AccountManagement />} />
+        <Route path="notifications" element={<NotificationCenter />} />
+        <Route path="settings" element={<SettingsPage />} />
+      </Route>
+
+      <Route path={ROUTES.root} element={<Navigate to={ROUTES.login} replace />} />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
+
+  if (useHashRouter) {
+    return <HashRouter>{appRoutes}</HashRouter>
+  }
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/no-permission" element={<NoPermissionPage />} />
-
-        {/* Employee Routes */}
-        <Route
-          path="/app"
-          element={
-            <AuthGuard requiredRole="employee">
-              <EmployeeLayout />
-            </AuthGuard>
-          }
-        >
-          <Route index element={<EmployeeDashboard />} />
-          <Route path="customers" element={<CustomerList />} />
-          <Route path="customers/new" element={<NewCustomer />} />
-          <Route path="customers/:id" element={<CustomerDetail />} />
-          <Route path="projects/:id" element={<ProjectDetail />} />
-          <Route path="followups" element={<FollowupPage />} />
-          <Route path="attachments" element={<AttachmentCenter />} />
-          <Route path="quotes" element={<QuoteList />} />
-          <Route path="quotes/:id" element={<QuoteDetail />} />
-          <Route path="payments" element={<PaymentList />} />
-          <Route path="commission" element={<CommissionPage />} />
-          <Route path="kpi" element={<KPIPage />} />
-          <Route path="weekly-report" element={<WeeklyReport />} />
-          <Route path="ai-coach" element={<AICoachPage />} />
-          <Route path="deadlines" element={<DeadlinePage />} />
-          <Route path="notifications" element={<NotificationCenter />} />
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
-
-        {/* Boss Routes */}
-        <Route
-          path="/boss"
-          element={
-            <AuthGuard requiredRole="boss">
-              <BossLayout />
-            </AuthGuard>
-          }
-        >
-          <Route index element={<BossDashboard />} />
-          <Route path="team" element={<TeamActivity />} />
-          <Route path="performance" element={<EmployeePerformance />} />
-          <Route path="sales" element={<SalesAnalytics />} />
-          <Route path="sku" element={<SKUAnalytics />} />
-          <Route path="customers" element={<CustomerAnalytics />} />
-          <Route path="payments" element={<PaymentCommission />} />
-          <Route path="alerts" element={<ProjectAlerts />} />
-          <Route path="approvals" element={<QuoteApproval />} />
-          <Route path="ai" element={<AIAnalytics />} />
-          <Route path="high-potential" element={<HighPotential />} />
-          <Route path="deadlines" element={<DeadlineRisk />} />
-          <Route path="accounts" element={<AccountManagement />} />
-          <Route path="notifications" element={<NotificationCenter />} />
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
-
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      {appRoutes}
     </BrowserRouter>
   )
 }
