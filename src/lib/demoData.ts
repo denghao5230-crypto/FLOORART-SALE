@@ -2072,8 +2072,95 @@ export const DEMO_NOTIFICATIONS: Notification[] = [
 // Helper Functions
 // ============================================================================
 
+const LOCAL_CUSTOMERS_STORAGE_KEY = 'senia-demo-customers-v1'
+
+export interface CreateDemoCustomerInput {
+  name: string
+  type: Customer['type']
+  contact_person: string
+  contact_phone: string
+  contact_email?: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  industry?: string
+  employee_count?: number
+  annual_revenue?: number
+  website?: string
+  notes?: string
+  competing_brands?: string[]
+}
+
+function readLocalCustomers(): Customer[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(LOCAL_CUSTOMERS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as Customer[]) : []
+  } catch (err) {
+    console.warn('Failed to read local customers from storage:', err)
+    return []
+  }
+}
+
+function writeLocalCustomers(customers: Customer[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LOCAL_CUSTOMERS_STORAGE_KEY, JSON.stringify(customers))
+  } catch (err) {
+    console.warn('Failed to write local customers to storage:', err)
+  }
+}
+
+function getAllCustomers(): Customer[] {
+  return [...DEMO_CUSTOMERS, ...readLocalCustomers()]
+}
+
+export function addDemoCustomerForUser(
+  userId: string,
+  input: CreateDemoCustomerInput
+): Customer {
+  const now = new Date().toISOString()
+  const localId = `cust-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+  const customer: Customer = {
+    id: localId,
+    name: input.name.trim(),
+    type: input.type,
+    stage: 'prospect',
+    email: (input.contact_email || input.email || '').trim(),
+    phone: (input.contact_phone || input.phone || '').trim() || null,
+    address: input.address?.trim() || null,
+    city: input.city?.trim() || null,
+    state: input.state?.trim() || null,
+    zip: input.zip?.trim() || null,
+    country: 'USA',
+    contact_person: input.contact_person.trim() || null,
+    contact_phone: input.contact_phone.trim() || null,
+    contact_email: input.contact_email?.trim() || null,
+    industry: input.industry?.trim() || null,
+    employee_count: Number.isFinite(input.employee_count) ? input.employee_count ?? null : null,
+    annual_revenue: Number.isFinite(input.annual_revenue) ? input.annual_revenue ?? null : null,
+    website: input.website?.trim() || null,
+    notes: input.notes?.trim() || null,
+    protection_status: 'unprotected',
+    created_by: userId,
+    assigned_to: userId,
+    created_at: now,
+    updated_at: now,
+  }
+
+  const existing = readLocalCustomers()
+  writeLocalCustomers([customer, ...existing])
+  return customer
+}
+
 export function getCustomersForUser(userId: string): Customer[] {
-  return DEMO_CUSTOMERS.filter(
+  return getAllCustomers().filter(
     (c) => c.assigned_to === userId || c.created_by === userId
   )
 }
@@ -2157,6 +2244,7 @@ export function getDashboardStats(userId: string) {
 }
 
 export function getBossDashboardStats() {
+  const allCustomers = getAllCustomers()
   const totalRevenue = DEMO_PAYMENTS.filter(
     (p) => p.status === 'paid'
   ).reduce((sum, p) => sum + p.amount, 0)
@@ -2165,7 +2253,7 @@ export function getBossDashboardStats() {
     : 0
 
   return {
-    totalCustomers: DEMO_CUSTOMERS.length,
+    totalCustomers: allCustomers.length,
     totalProjects: DEMO_PROJECTS.length,
     activeProjects: DEMO_PROJECTS.filter(
       (p) => p.status === 'in_progress' || p.status === 'contract'

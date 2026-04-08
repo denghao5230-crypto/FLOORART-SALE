@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/Badge'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { useAuthStore } from '@/store/authStore'
 import { getCustomersForUser } from '@/lib/demoData'
+import { ROUTES } from '@/constants/routes'
 import type { CustomerStage, ProtectionStatus } from '@/types'
 
 type ViewMode = 'grid' | 'list'
@@ -55,7 +56,7 @@ export function CustomerList() {
 
   // Filter and search
   const filteredCustomers = useMemo(() => {
-    let results = customers
+    let results = [...customers]
 
     // Stage filter
     if (selectedStage !== 'all') {
@@ -148,7 +149,7 @@ export function CustomerList() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/employee/customers/new')}
+          onClick={() => navigate(ROUTES.employee.newCustomer)}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-md hover:shadow-lg"
         >
           <Plus size={20} />
@@ -257,7 +258,7 @@ export function CustomerList() {
           {filteredCustomers.map((customer) => (
             <div
               key={customer.id}
-              onClick={() => navigate(`/employee/customers/${customer.id}`)}
+              onClick={() => navigate(`${ROUTES.employee.customers}/${customer.id}`)}
               className="bg-white dark:bg-surface-800 rounded-lg border border-surface-200 dark:border-surface-700 p-4 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all cursor-pointer"
             >
               <div className="flex justify-between items-start mb-3">
@@ -273,7 +274,7 @@ export function CustomerList() {
                   className="ml-2 p-1 hover:bg-surface-100 dark:hover:bg-surface-700 rounded"
                   onClick={(e) => {
                     e.stopPropagation()
-                    navigate(`/employee/customers/${customer.id}`)
+                    navigate(`${ROUTES.employee.customers}/${customer.id}`)
                   }}
                 >
                   <ChevronRight size={20} className="text-surface-400" />
@@ -313,7 +314,7 @@ export function CustomerList() {
           {filteredCustomers.map((customer) => (
             <div
               key={customer.id}
-              onClick={() => navigate(`/employee/customers/${customer.id}`)}
+              onClick={() => navigate(`${ROUTES.employee.customers}/${customer.id}`)}
               className="flex items-center justify-between px-6 py-4 hover:bg-surface-50 dark:hover:bg-surface-700/50 border-b border-surface-200 dark:border-surface-700 last:border-b-0 cursor-pointer transition-colors"
             >
               <div className="flex-1 min-w-0">

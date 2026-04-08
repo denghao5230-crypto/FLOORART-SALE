@@ -37,6 +37,14 @@ interface AuthStore {
   setUnreadCount: (count: number) => void
 }
 
+const DEMO_PROFILE_IDS = {
+  'ted@senia.com': 'demo-ted',
+  'mook@senia.com': 'demo-mook',
+  'ying@senia.com': 'demo-ying',
+  'yolo@senia.com': 'demo-yolo',
+  'sarah@senia.com': 'demo-sarah',
+} as const
+
 const INITIAL_AUTH_STATE = {
   profile: null,
   isAuthenticated: false,
@@ -64,12 +72,24 @@ const buildProfileFromRaw = (raw: RawProfile, emailFallback?: string): UserProfi
     raw.status === 'disabled' || raw.status === 'deleted' ? raw.status : 'active',
 })
 
+const normalizeDemoProfile = (profile: UserProfile): UserProfile => {
+  const normalizedEmail = profile.email.trim().toLowerCase() as keyof typeof DEMO_PROFILE_IDS
+  const canonicalId = DEMO_PROFILE_IDS[normalizedEmail]
+  if (!canonicalId) {
+    return profile
+  }
+  return {
+    ...profile,
+    id: canonicalId,
+  }
+}
+
 // Demo accounts - work without Supabase
 const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> = {
   'ted@senia.com': {
     password: '123456',
     profile: {
-      id: 'a1111111-1111-1111-1111-111111111111',
+      id: 'demo-ted',
       name: 'Ted',
       email: 'ted@senia.com',
       role: 'boss',
@@ -80,7 +100,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> 
   'mook@senia.com': {
     password: '123456',
     profile: {
-      id: 'a2222222-2222-2222-2222-222222222222',
+      id: 'demo-mook',
       name: 'Mook',
       email: 'mook@senia.com',
       role: 'employee',
@@ -91,7 +111,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> 
   'ying@senia.com': {
     password: '123456',
     profile: {
-      id: 'a3333333-3333-3333-3333-333333333333',
+      id: 'demo-ying',
       name: 'Ying',
       email: 'ying@senia.com',
       role: 'employee',
@@ -102,7 +122,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> 
   'yolo@senia.com': {
     password: '123456',
     profile: {
-      id: 'a4444444-4444-4444-4444-444444444444',
+      id: 'demo-yolo',
       name: 'Yolo',
       email: 'yolo@senia.com',
       role: 'employee',
@@ -113,7 +133,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; profile: UserProfile }> 
   'sarah@senia.com': {
     password: '123456',
     profile: {
-      id: 'a5555555-5555-5555-5555-555555555555',
+      id: 'demo-sarah',
       name: 'Sarah',
       email: 'sarah@senia.com',
       role: 'employee',
@@ -132,8 +152,19 @@ export const useAuthStore = create<AuthStore>()(
       initialize: async () => {
         const state = get()
 
+        if (state.isDemo) {
+          const normalizedProfile = state.profile ? normalizeDemoProfile(state.profile) : null
+          set({
+            profile: normalizedProfile,
+            isAuthenticated: Boolean(normalizedProfile),
+            loading: false,
+            isDemo: true,
+          })
+          return
+        }
+
         // Demo or non-Supabase mode does not require remote session hydration.
-        if (!isSupabaseConfigured() || state.isDemo) {
+        if (!isSupabaseConfigured()) {
           set({ loading: false })
           return
         }

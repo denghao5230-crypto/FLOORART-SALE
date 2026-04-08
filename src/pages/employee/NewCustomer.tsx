@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { useAuthStore } from '@/store/authStore'
+import { addDemoCustomerForUser } from '@/lib/demoData'
+import { ROUTES } from '@/constants/routes'
 
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -21,6 +24,8 @@ const MAJOR_US_CITIES = [
 
 export function NewCustomer() {
   const navigate = useNavigate()
+  const profile = useAuthStore((state) => state.profile)
+  const userId = profile?.id || 'demo-mook'
   const [formData, setFormData] = useState({
     name: '',
     type: 'contractor' as const,
@@ -58,11 +63,37 @@ export function NewCustomer() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
+      const employeeCount = formData.employee_count
+        ? Number(formData.employee_count)
+        : undefined
+      const annualRevenue = formData.annual_revenue
+        ? Number(formData.annual_revenue)
+        : undefined
+
+      addDemoCustomerForUser(userId, {
+        name: formData.name,
+        type: formData.type,
+        contact_person: formData.contact_person,
+        contact_phone: formData.contact_phone,
+        contact_email: formData.contact_email,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        industry: formData.industry,
+        employee_count: Number.isFinite(employeeCount) ? employeeCount : undefined,
+        annual_revenue: Number.isFinite(annualRevenue) ? annualRevenue : undefined,
+        website: formData.website,
+        notes: formData.notes,
+        competing_brands: formData.competing_brands,
+      })
+
       setSubmitted(true)
-      // Simulate API call
       setTimeout(() => {
-        navigate('/employee/customers')
-      }, 2000)
+        navigate(ROUTES.employee.customers)
+      }, 800)
     }
   }
 
@@ -97,7 +128,7 @@ export function NewCustomer() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/employee/customers')}
+          onClick={() => navigate(ROUTES.employee.customers)}
           className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
         >
           <ArrowLeft size={20} className="text-surface-600" />
@@ -115,7 +146,7 @@ export function NewCustomer() {
       {submitted && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <p className="text-green-700 dark:text-green-300 font-medium">
-            ✓ 客户报备成功！2秒后将跳转到客户列表...
+            ✓ 客户报备成功！正在跳转到客户列表...
           </p>
         </div>
       )}
@@ -442,7 +473,7 @@ export function NewCustomer() {
         <div className="flex gap-4 justify-end">
           <button
             type="button"
-            onClick={() => navigate('/employee/customers')}
+            onClick={() => navigate(ROUTES.employee.customers)}
             className="px-6 py-3 border border-surface-300 dark:border-surface-600 text-surface-700 dark:text-surface-300 rounded-lg font-medium hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
           >
             取消
