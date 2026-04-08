@@ -1,4 +1,4 @@
-import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
@@ -63,6 +63,9 @@ export default function App() {
 
   const appRoutes = (
     <Routes>
+      {/* Legacy route compatibility: /employee/* -> /app/* */}
+      <Route path="/employee/*" element={<LegacyPrefixRedirect fromPrefix="/employee" toPrefix={ROUTES.employee.root} />} />
+
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route path={ROUTES.noPermission} element={<NoPermissionPage />} />
 
@@ -134,6 +137,15 @@ export default function App() {
       {appRoutes}
     </BrowserRouter>
   )
+}
+
+function LegacyPrefixRedirect({ fromPrefix, toPrefix }: { fromPrefix: string; toPrefix: string }) {
+  const location = useLocation()
+  const suffix = location.pathname.startsWith(fromPrefix)
+    ? location.pathname.slice(fromPrefix.length)
+    : ''
+  const targetPath = `${toPrefix}${suffix}`
+  return <Navigate to={`${targetPath}${location.search}${location.hash}`} replace />
 }
 
 function LoadingScreen() {
